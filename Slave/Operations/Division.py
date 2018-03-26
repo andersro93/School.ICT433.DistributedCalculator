@@ -9,4 +9,4 @@ class Division(Operation):
         super().__init__()
 
     def calculate(self, arg1, arg2):
-        return arg1 / arg2
+        return float(arg1) / float(arg2)
