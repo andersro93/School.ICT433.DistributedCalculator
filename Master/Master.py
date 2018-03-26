@@ -115,7 +115,7 @@ class Master(object):
         command = command
 
         while True:
-            matches = re.findall(r"(\((\d+|\d+\.\d*)(.)(\d+|\d+\.\d*)\))", command)
+            matches = re.findall(r"(\((\d*\.?\d*)(.)(\d*\.?\d*)\))", command)
 
             if len(matches) is 0:
                 return command
