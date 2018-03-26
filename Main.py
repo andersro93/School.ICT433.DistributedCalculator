@@ -7,7 +7,7 @@ from Slave import Slave
 from Client import Client
 
 MASTER_HOST = 'localhost'
-MASTER_PORT = 4444
+MASTER_PORT = '4444'
 
 PROGRAM = None
 

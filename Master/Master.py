@@ -1,7 +1,7 @@
 from random import Random
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.client import ServerProxy
-
+import re
 from .Task import Task
 
 
@@ -25,7 +25,7 @@ class Master(object):
     RANDOM = None
     """ Random object used to perform random operations """
 
-    def __init__(self, hostname, port):
+    def __init__(self, hostname: str, port: str):
         self.HOSTNAME = hostname
         self.PORT = port
         self.RANDOM = Random()
@@ -34,7 +34,7 @@ class Master(object):
         for operator in self.SUPPORTED_OPERATORS:
             self.SLAVES[operator] = list()
 
-    def register_slave(self, hostname, port, operator):
+    def register_slave(self, hostname: str, port: str, operator: str) -> bool:
         """
         Registers the slave
         :param hostname: str
@@ -56,75 +56,101 @@ class Master(object):
 
         return True
 
-    def calculate(self, command: str):
+    def calculate(self, command: str) -> str:
+        """
+        Handles an incoming command
+        :param command:
+        :return: str
+        """
+
+        print(f"New calculation: {command}")
 
         # Remove spaces from expression
-        command_without_spaces = command.strip(" ")
+        command = command.strip(" ")
 
-        # Determine all tasks
-        task = self.create_task(command_without_spaces)
+        # Solve all parenthesis
+        command = self.__solve_parenthesis(command)
 
-        # Calculate task
-        result = self.calculate_task(task)
+        # Solve simple command
+        command = self.__solve_simple_commands(command)
 
-        return result
+        return command
 
-    def create_task(self, command):
-        if "(" in command or ")" in command:
-            start_index = command.find("(")
-            end_index = command.rfind(")")
+    def __solve_simple_commands(self, command: str):
+        """
+        Solves the commands
+        :param command:
+        :return:
+        """
+        command = command
 
-            self.create_task(command[start_index:end_index])
+        for operator in self.SUPPORTED_OPERATORS:
+            while True:
+                regex_pattern = '((\d*\.?\d*)([\\' + operator + '])(\d*\.?\d*))'
 
-        operation = False
+                matches = re.findall(regex_pattern, command)
 
-        for supported_operation in self.SUPPORTED_OPERATORS:
-            if supported_operation in command:
-                operation = supported_operation
-                break
+                if len(matches) is 0:
+                    break
 
-        splitted_command = command.split(operation)
+                for sub_command in matches:
+                    sub_task = self.create_task(sub_command[1], sub_command[2], sub_command[3])
 
-        task = Task()
-        task.Operation = operation
-        task.ARG1 = splitted_command[0]
-        task.ARG2 = splitted_command[2]
+                    try:
+                        result = self.__send_task_to_slave(sub_task)
+                    except Exception as e:
+                        return str(e)
 
-        return task
+                    command = command.replace(sub_command[0], str(result))
 
-    def calculate_task(self, task: Task):
-        if task.ARG1 is Task:
-            task.ARG1 = self.calculate_task(task.ARG1)
+        return command
 
-        if task.ARG2 is Task:
-            task.ARG2 = self.calculate_task(task.ARG2)
+    def __solve_parenthesis(self, command: str) -> str:
+        """
+        Solves the command regarding parenthesis and returns the remaining command
+        :param command:
+        :return: str
+        """
 
-        return self.send_task_to_slave(task.ARG1, task.Operation, task.ARG2)
+        command = command
 
-    def send_task_to_slave(self, arg1=None, operator=None, arg2=None):
+        while True:
+            matches = re.findall(r"(\((\d+|\d+\.\d*)(.)(\d+|\d+\.\d*)\))", command)
+
+            if len(matches) is 0:
+                return command
+
+            for sub_command in matches:
+                sub_task = self.create_task(sub_command[1], sub_command[2], sub_command[3])
+
+                try:
+                    result = self.__send_task_to_slave(sub_task)
+                except Exception as e:
+                    return str(e)
+
+                command = command.replace(sub_command[0], str(result))
+
+    def __send_task_to_slave(self, task: Task) -> str:
         """
         Forwards the given input to one of the slaves connected to the server
-        :param arg1:
-        :param operator:
-        :param arg2:
+        :param task: Task
         :return: double, str
         """
-        print(f"New request: {arg1} {operator} {arg2}")
 
-        if operator not in self.SUPPORTED_OPERATORS:
-            return f"Invalid operation: '{operator}'"
+        if task.Operation not in self.SUPPORTED_OPERATORS:
+            raise Exception(f"Invalid operation: '{task.Operation}'")
 
         if len(self.SLAVES) is 0:
-            return f"No slaves is online to perform the operation: '{operator}'"
+            raise Exception(f"No slaves is online to perform the operation: '{task.Operation}'")
 
-        for slave in self.SLAVES[operator]:
+        for slave in self.SLAVES[task.Operation]:
 
             with ServerProxy(f"http://{slave[0]}:{slave[1]}/") as client:
-                result = client.calculate(arg1, arg2)
+                result = client.calculate(task.ARG1, task.ARG2)
                 print(f"Result from Slave: {result}")
                 return result
 
-        return "No slaves available to handle your request, sorry..."
+        raise Exception("No slaves available to handle your request, sorry...")
 
     def run(self):
         """
@@ -132,7 +158,7 @@ class Master(object):
         """
 
         # Create the server
-        self.SERVER = SimpleXMLRPCServer((self.HOSTNAME, self.PORT))
+        self.SERVER = SimpleXMLRPCServer((self.HOSTNAME, int(self.PORT)))
 
         # Register the routes
         self.SERVER.register_introspection_functions()
@@ -144,7 +170,16 @@ class Master(object):
         self.SERVER.serve_forever()
 
     @staticmethod
-    def heartbeat():
+    def create_task(arg1: str, operator: str, arg2: str) -> Task:
+        task = Task()
+        task.Operation = operator
+        task.ARG1 = arg1
+        task.ARG2 = arg2
+
+        return task
+
+    @staticmethod
+    def heartbeat() -> bool:
         """
         Simple heartbeat method to check if the master is online
         :return: bool

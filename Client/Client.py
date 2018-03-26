@@ -1,7 +1,5 @@
 from xmlrpc.client import ServerProxy
 
-import re
-
 
 class Client(object):
 
