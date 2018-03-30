@@ -28,6 +28,10 @@ class Client(object):
         self.CLIENT = ServerProxy(f"http://{self.MASTER_HOST}:{self.MASTER_PORT}/")
 
     def run(self):
+        """
+        Starts the client software
+        :return: None
+        """
 
         print("============================================================")
         print("Simple distributed calculator")

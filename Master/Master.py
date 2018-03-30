@@ -80,7 +80,7 @@ class Master(object):
         """
         Solves the commands
         :param command:
-        :return:
+        :return: str
         """
         command = command
 
@@ -171,6 +171,13 @@ class Master(object):
 
     @staticmethod
     def create_task(arg1: str, operator: str, arg2: str) -> Task:
+        """
+        Factory method for creating tasks and assigning values
+        :param arg1:
+        :param operator:
+        :param arg2:
+        :return: Task
+        """
         task = Task()
         task.Operation = operator
         task.ARG1 = arg1

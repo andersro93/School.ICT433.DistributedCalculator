@@ -55,9 +55,17 @@ class Slave(object):
                     break
 
     def run(self):
+        """
+        Executes the slave program
+        :return: None
+        """
         self.register_to_master()
 
     def register_to_master(self):
+        """
+        Registers the slave to the master and starts to listen for jobs
+        :return: None
+        """
         with xmlrpc.client.ServerProxy(f'http://{self.MASTER_HOST}:{self.MASTER_PORT}/') as master:
             print(self.MASTER_HOST)
             print(f"Registering at: http://{self.MASTER_HOST}:{self.MASTER_PORT}/")
